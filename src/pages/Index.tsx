@@ -590,17 +590,17 @@ function HistoryPage({ onOpen }: { onOpen: (v: Verdict) => void }) {
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <div>
-                <div style={{ fontSize: 12, color: C.text }}>{h.filename}</div>
-                <div style={{ fontSize: 10, color: C.muted, marginTop: 3, letterSpacing: 0.5 }}>{h.institution}</div>
+                <div style={{ fontSize: 13, color: C.text, fontFamily: MONO, fontWeight: 500 }}>{h.filename}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4, letterSpacing: 0.3 }}>{h.institution}</div>
               </div>
               <div>
                 <span style={{
-                  fontSize: 10, padding: "4px 10px", borderRadius: 999,
-                  background: vc.bg, border: `1px solid ${vc.fg}`, color: vc.fg, letterSpacing: 1, fontWeight: "bold",
+                  fontSize: 10, padding: "5px 12px", borderRadius: 999,
+                  background: vc.bg, border: `1px solid ${vc.fg}`, color: vc.fg, letterSpacing: 1.5, fontWeight: 700, fontFamily: MONO,
                 }}>{h.v}</span>
               </div>
-              <div style={{ fontSize: 14, color: vc.fg, fontWeight: "bold" }}>{score}</div>
-              <div style={{ fontSize: 11, color: C.muted, letterSpacing: 0.5 }}>{h.date}</div>
+              <div style={{ fontSize: 16, color: vc.fg, fontWeight: 700, fontFamily: MONO }}>{score}</div>
+              <div style={{ fontSize: 11, color: C.muted, letterSpacing: 0.5, fontFamily: MONO }}>{h.date}</div>
             </div>
           );
         })}
