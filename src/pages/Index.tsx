@@ -18,7 +18,8 @@ const C = {
   purple: "#a855f7",
   cyan: "#06b6d4",
 };
-const FONT = "'Courier New', monospace";
+const FONT = "'Space Grotesk', 'Inter', system-ui, sans-serif";
+const MONO = "'JetBrains Mono', 'Courier New', monospace";
 
 // ============ MOCK DATA ============
 type Verdict = "GENUINE" | "SUSPICIOUS" | "FAKE";
