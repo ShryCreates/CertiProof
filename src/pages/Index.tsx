@@ -419,9 +419,11 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-        <button style={btnPrimary()}>📥 DOWNLOAD PDF REPORT</button>
-        <button style={btnGhost()}>🔗 SHARE RESULT</button>
+      <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
+        <button style={btnPrimary()} onClick={() => generatePdfReport(result)}>📥 DOWNLOAD PDF REPORT</button>
+        <button style={btnGhost()} onClick={() => {
+          navigator.clipboard?.writeText(`CertValidator Report — ${result.filename}\nVerdict: ${result.verdict} (Score ${result.score}/100)`);
+        }}>🔗 SHARE RESULT</button>
         <button onClick={onReset} style={btnGhost()}>VERIFY ANOTHER</button>
       </div>
     </div>
