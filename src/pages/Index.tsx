@@ -540,8 +540,8 @@ function FieldsCard({ result }: { result: Result }) {
 function ReasoningCard({ result }: { result: Result }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 12 }}>🧠 LLM REASONING</div>
-      <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7 }}>{result.reasoning}</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 14, fontFamily: MONO }}>🧠 LLM REASONING</div>
+      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.75 }}>{result.reasoning}</div>
     </div>
   );
 }
