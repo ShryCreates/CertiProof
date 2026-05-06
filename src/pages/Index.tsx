@@ -286,7 +286,7 @@ function UploadPage({ onTrigger }: { onTrigger: (v: Verdict) => void }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0 }}>CERTIFICATE ANALYSIS</h1>
+      <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>CERTIFICATE ANALYSIS</h1>
       <div style={{ fontSize: 12, color: C.muted, marginTop: 6, letterSpacing: 0.5 }}>
         Upload a certificate to run forensic analysis through the full AI pipeline
       </div>
@@ -344,7 +344,7 @@ function LoadingScreen({ step }: { step: number }) {
   const pct = Math.min(100, (step / STEPS.length) * 100);
   return (
     <div style={{ maxWidth: 720, margin: "60px auto" }}>
-      <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0, textAlign: "center" }}>ANALYZING CERTIFICATE...</h1>
+      <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, textAlign: "center", fontWeight: 700, fontFamily: MONO }}>ANALYZING CERTIFICATE...</h1>
       <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textAlign: "center", marginTop: 8 }}>
         RUNNING FORENSIC PIPELINE
       </div>
@@ -383,7 +383,7 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0 }}>ANALYSIS REPORT</h1>
+          <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>ANALYSIS REPORT</h1>
           <div style={{ fontSize: 11, color: C.muted, marginTop: 6, letterSpacing: 1 }}>
             {result.filename} · {result.date}
           </div>
@@ -565,7 +565,7 @@ function HeatmapCard() {
 function HistoryPage({ onOpen }: { onOpen: (v: Verdict) => void }) {
   return (
     <div>
-      <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0 }}>ANALYSIS HISTORY</h1>
+      <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>ANALYSIS HISTORY</h1>
       <div style={{ fontSize: 12, color: C.muted, marginTop: 6, letterSpacing: 0.5 }}>
         {HISTORY.length} records · last 30 days
       </div>
