@@ -219,7 +219,7 @@ const inputStyle = (focused: boolean): CSSProperties => ({
 });
 
 const Label = ({ children }: { children: React.ReactNode }) =>
-  <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 6 }}>{children}</div>;
+  <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1.5, marginBottom: 6, fontFamily: MONO }}>{children}</div>;
 
 // ============ SIDEBAR ============
 function Sidebar({ tab, setTab, email, onLogout }: {
@@ -254,8 +254,8 @@ function Sidebar({ tab, setTab, email, onLogout }: {
         {navItem("history", "🕐", "HISTORY")}
       </div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, marginTop: 14 }}>
-        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>SIGNED IN</div>
-        <div style={{ fontSize: 11, color: C.text, marginBottom: 12, wordBreak: "break-all" }}>{email}</div>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 2, marginBottom: 6, fontFamily: MONO }}>SIGNED IN</div>
+        <div style={{ fontSize: 11, color: C.text, marginBottom: 12, wordBreak: "break-all", fontFamily: MONO }}>{email}</div>
         <button onClick={onLogout} style={{
           width: "100%", padding: "8px 10px", background: "transparent",
           border: `1px solid ${C.border}`, color: C.muted, fontFamily: FONT,
@@ -323,7 +323,7 @@ function UploadPage({ onTrigger }: { onTrigger: (v: Verdict) => void }) {
       </div>
 
       <div style={{ marginTop: 28, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-        <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 14, fontFamily: MONO }}>
           📋 ANALYSIS PIPELINE
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -345,7 +345,7 @@ function LoadingScreen({ step }: { step: number }) {
   return (
     <div style={{ maxWidth: 720, margin: "60px auto" }}>
       <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, textAlign: "center", fontWeight: 700, fontFamily: MONO }}>ANALYZING CERTIFICATE...</h1>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textAlign: "center", marginTop: 8 }}>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, textAlign: "center", marginTop: 8, fontFamily: MONO }}>
         RUNNING FORENSIC PIPELINE
       </div>
       <div style={{ marginTop: 32, height: 6, background: C.border, borderRadius: 4, overflow: "hidden" }}>
@@ -401,7 +401,7 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
 
       {result.issues.length > 0 && (
         <div style={{ marginTop: 20, background: C.redBg, border: `1px solid ${C.red}`, borderRadius: 8, padding: 18 }}>
-          <div style={{ fontSize: 11, color: C.red, letterSpacing: 1, marginBottom: 10, fontWeight: "bold" }}>
+          <div style={{ fontSize: 11, color: C.red, letterSpacing: 2, marginBottom: 10, fontWeight: 700, fontFamily: MONO }}>
             ⚠ DETECTED ANOMALIES ({result.issues.length})
           </div>
           {result.issues.map((iss, i) => (
@@ -444,7 +444,7 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
   const offset = c - (result.score / 100) * c;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 24, textAlign: "center" }}>
-      <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 18 }}>VERDICT</div>
+      <div style={{ fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 18, fontFamily: MONO }}>VERDICT</div>
       <svg width={140} height={140} viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
         <circle cx={60} cy={60} r={r} fill="none" stroke={C.border} strokeWidth={8} />
         <circle cx={60} cy={60} r={r} fill="none" stroke={vc.fg} strokeWidth={8}
@@ -463,8 +463,8 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
         }}>{result.verdict}</span>
       </div>
       <div style={{ marginTop: 22, padding: 12, background: C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 6 }}>INSTITUTION MATCH</div>
-        <div style={{ fontSize: 13, color: result.institution_match ? C.green : C.red, letterSpacing: 1 }}>
+        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 6, fontFamily: MONO }}>INSTITUTION MATCH</div>
+        <div style={{ fontSize: 13, color: result.institution_match ? C.green : C.red, letterSpacing: 1.5, fontFamily: MONO, fontWeight: 600 }}>
           {result.institution_match ? "✓ VERIFIED" : "✕ NOT FOUND"}
         </div>
       </div>
@@ -498,17 +498,17 @@ function ContributionChart({ result }: { result: Result }) {
   ];
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 16 }}>SCORE CONTRIBUTION (WEIGHTED)</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 16, fontFamily: MONO }}>SCORE CONTRIBUTION (WEIGHTED)</div>
       {bars.map((b) => (
         <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.text, letterSpacing: 1, width: 80 }}>{b.label}</div>
+          <div style={{ fontSize: 11, color: C.text, letterSpacing: 1.5, width: 80, fontFamily: MONO, fontWeight: 600 }}>{b.label}</div>
           <div style={{ flex: 1, height: 18, background: C.bg, borderRadius: 4, overflow: "hidden", border: `1px solid ${C.border}` }}>
             <div style={{
               width: `${b.weight}%`, height: "100%",
               background: b.color, transition: "width 0.8s ease",
             }} />
           </div>
-          <div style={{ fontSize: 11, color: b.color, width: 44, textAlign: "right", letterSpacing: 1 }}>{b.weight}%</div>
+          <div style={{ fontSize: 12, color: b.color, width: 48, textAlign: "right", letterSpacing: 1, fontFamily: MONO, fontWeight: 700 }}>{b.weight}%</div>
         </div>
       ))}
     </div>
@@ -518,7 +518,7 @@ function ContributionChart({ result }: { result: Result }) {
 function FieldsCard({ result }: { result: Result }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 14 }}>EXTRACTED FIELDS</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 14, fontFamily: MONO }}>EXTRACTED FIELDS</div>
       {Object.entries(result.fields).map(([k, v], i, arr) => (
         <div key={k} style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
@@ -549,12 +549,12 @@ function ReasoningCard({ result }: { result: Result }) {
 function HeatmapCard() {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 12 }}>🗺 GRADCAM HEATMAP</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 12, fontFamily: MONO }}>🗺 GRADCAM HEATMAP</div>
       <div style={{
         height: 120, borderRadius: 6, border: `1px dashed ${C.border}`,
         background: "linear-gradient(135deg, #0a1530 0%, #1a0a30 50%, #2a0a0a 100%)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 12,
+        fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 12, fontFamily: MONO,
       }}>HEATMAP PREVIEW</div>
       <button style={{ ...btnGhost(), width: "100%" }}>VIEW OVERLAY</button>
     </div>
@@ -573,7 +573,7 @@ function HistoryPage({ onOpen }: { onOpen: (v: Verdict) => void }) {
         <div style={{
           display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1.4fr",
           padding: "14px 20px", background: C.bg, borderBottom: `1px solid ${C.border}`,
-          fontSize: 10, color: C.muted, letterSpacing: 2,
+          fontSize: 10, color: C.muted, letterSpacing: 2, fontFamily: MONO,
         }}>
           <div>FILENAME</div><div>VERDICT</div><div>SCORE</div><div>DATE</div>
         </div>
