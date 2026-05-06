@@ -246,8 +246,8 @@ function Sidebar({ tab, setTab, email, onLogout }: {
     <aside style={{ width: 200, background: C.card, borderRight: `1px solid ${C.border}`, padding: 18, display: "flex", flexDirection: "column" }}>
       <div style={{ marginBottom: 28, padding: "4px 6px" }}>
         <div style={{ fontSize: 22 }}>🛡</div>
-        <div style={{ fontSize: 13, letterSpacing: 2, marginTop: 6, fontWeight: "bold" }}>CERTVALIDATOR</div>
-        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 1, marginTop: 2 }}>v2.4.1</div>
+        <div style={{ fontSize: 14, letterSpacing: 3, marginTop: 6, fontWeight: 700, fontFamily: MONO }}>CERTVALIDATOR</div>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 1, marginTop: 4, fontFamily: MONO }}>v2.4.1</div>
       </div>
       <div style={{ flex: 1 }}>
         {navItem("upload", "📤", "UPLOAD")}
