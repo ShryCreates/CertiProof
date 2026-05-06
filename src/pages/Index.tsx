@@ -524,10 +524,10 @@ function FieldsCard({ result }: { result: Result }) {
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none",
         }}>
-          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1 }}>{k}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 12, color: C.text }}>{v.value}</div>
-            <div style={{ fontSize: 10, color: confColor(v.confidence), letterSpacing: 1, minWidth: 36, textAlign: "right" }}>
+          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1.5, fontFamily: MONO }}>{k}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 13, color: C.text, fontFamily: MONO, fontWeight: 500 }}>{v.value}</div>
+            <div style={{ fontSize: 10, color: confColor(v.confidence), letterSpacing: 1, minWidth: 38, textAlign: "right", fontFamily: MONO, fontWeight: 600 }}>
               {v.confidence}%
             </div>
           </div>
