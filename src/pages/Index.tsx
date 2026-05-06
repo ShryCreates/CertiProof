@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, CSSProperties, DragEvent } from "react";
+import { jsPDF } from "jspdf";
 
 // ============ DESIGN TOKENS ============
 const C = {
