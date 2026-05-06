@@ -441,6 +441,237 @@ const btnGhost = (): CSSProperties => ({
   letterSpacing: 1, cursor: "pointer", borderRadius: 6, transition: "all 0.2s",
 });
 
+// ============ PDF REPORT ============
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function generatePdfReport(result: Result) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth();
+  const H = doc.internal.pageSize.getHeight();
+  const M = 40;
+  const vc = verdictColor(result.verdict);
+
+  // Page background
+  const [br, bg, bb] = hexToRgb(C.bg);
+  doc.setFillColor(br, bg, bb);
+  doc.rect(0, 0, W, H, "F");
+
+  // Header bar
+  const [cr, cg, cb] = hexToRgb(C.card);
+  doc.setFillColor(cr, cg, cb);
+  doc.rect(0, 0, W, 70, "F");
+  const [bdr, bdg, bdb] = hexToRgb(C.borderHi);
+  doc.setDrawColor(bdr, bdg, bdb);
+  doc.setLineWidth(0.5);
+  doc.line(0, 70, W, 70);
+
+  doc.setFont("courier", "bold");
+  doc.setFontSize(18);
+  const [tr, tg, tb] = hexToRgb(C.text);
+  doc.setTextColor(tr, tg, tb);
+  doc.text("🛡 CERTVALIDATOR", M, 32);
+
+  doc.setFont("courier", "normal");
+  doc.setFontSize(8);
+  const [mr, mg, mb] = hexToRgb(C.muted);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("FORENSIC CERTIFICATE ANALYSIS REPORT", M, 48);
+  doc.text(`GENERATED ${new Date().toISOString().slice(0, 19).replace("T", " ")} UTC`, M, 60);
+
+  // Verdict pill
+  const [vr, vg, vb] = hexToRgb(vc.fg);
+  const [vbr, vbg, vbb] = hexToRgb(vc.bg);
+  doc.setFillColor(vbr, vbg, vbb);
+  doc.setDrawColor(vr, vg, vb);
+  doc.setLineWidth(1);
+  doc.roundedRect(W - M - 110, 22, 110, 30, 15, 15, "FD");
+  doc.setTextColor(vr, vg, vb);
+  doc.setFont("courier", "bold");
+  doc.setFontSize(13);
+  doc.text(result.verdict, W - M - 55, 41, { align: "center" });
+
+  let y = 100;
+
+  // File info card
+  drawCard(doc, M, y, W - 2 * M, 60);
+  doc.setFont("courier", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("FILENAME", M + 14, y + 16);
+  doc.text("ANALYZED", M + 14, y + 38);
+  doc.setTextColor(tr, tg, tb);
+  doc.setFontSize(11);
+  doc.text(result.filename, M + 90, y + 16);
+  doc.text(result.date, M + 90, y + 38);
+
+  y += 80;
+
+  // Trust score + metrics row
+  drawCard(doc, M, y, 180, 140);
+  doc.setFont("courier", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("TRUST SCORE", M + 90, y + 18, { align: "center" });
+  doc.setFont("courier", "bold");
+  doc.setFontSize(48);
+  doc.setTextColor(vr, vg, vb);
+  doc.text(String(result.score), M + 90, y + 70, { align: "center" });
+  doc.setFontSize(9);
+  doc.text("/ 100", M + 90, y + 88, { align: "center" });
+  doc.setFont("courier", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("INSTITUTION MATCH", M + 90, y + 110, { align: "center" });
+  doc.setTextColor(...(result.institution_match ? hexToRgb(C.green) : hexToRgb(C.red)));
+  doc.setFont("courier", "bold");
+  doc.setFontSize(10);
+  doc.text(result.institution_match ? "VERIFIED" : "NOT FOUND", M + 90, y + 124, { align: "center" });
+
+  // Metric cards
+  const metrics = [
+    { label: "FORGERY SCORE", v: result.forgery, color: C.blue, weight: "45%" },
+    { label: "FIELD CONFIDENCE", v: result.field, color: C.purple, weight: "35%" },
+    { label: "NLP REASONING", v: result.nlp, color: C.cyan, weight: "20%" },
+  ];
+  const mxStart = M + 200;
+  const mw = (W - 2 * M - 200 - 20) / 3;
+  metrics.forEach((m, i) => {
+    const x = mxStart + i * (mw + 10);
+    drawCard(doc, x, y, mw, 65);
+    doc.setFont("courier", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(mr, mg, mb);
+    doc.text(m.label, x + 10, y + 16);
+    const [r, g, b] = hexToRgb(m.color);
+    doc.setTextColor(r, g, b);
+    doc.setFont("courier", "bold");
+    doc.setFontSize(22);
+    doc.text(`${Math.round(m.v * 100)}%`, x + 10, y + 44);
+    doc.setFontSize(7);
+    doc.setTextColor(mr, mg, mb);
+    doc.setFont("courier", "normal");
+    doc.text(`WEIGHT ${m.weight}`, x + 10, y + 58);
+  });
+
+  // Contribution bars
+  const cy = y + 75;
+  drawCard(doc, mxStart, cy, W - mxStart - M, 65);
+  doc.setFont("courier", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("SCORE CONTRIBUTION (WEIGHTED)", mxStart + 10, cy + 14);
+  const barX = mxStart + 70;
+  const barMaxW = W - mxStart - M - 110;
+  metrics.forEach((m, i) => {
+    const by = cy + 26 + i * 13;
+    const w = barMaxW * (parseInt(m.weight) / 100);
+    doc.setTextColor(tr, tg, tb);
+    doc.setFontSize(7);
+    doc.text(m.label.split(" ")[0], mxStart + 10, by + 7);
+    doc.setFillColor(...hexToRgb(C.bg));
+    doc.rect(barX, by, barMaxW, 8, "F");
+    doc.setFillColor(...hexToRgb(m.color));
+    doc.rect(barX, by, w, 8, "F");
+    doc.setTextColor(...hexToRgb(m.color));
+    doc.text(m.weight, barX + barMaxW + 6, by + 7);
+  });
+
+  y += 160;
+
+  // Anomalies
+  if (result.issues.length > 0) {
+    const ah = 24 + result.issues.length * 14;
+    const [rr, rg, rb] = hexToRgb(C.red);
+    doc.setFillColor(...hexToRgb(C.redBg));
+    doc.setDrawColor(rr, rg, rb);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(M, y, W - 2 * M, ah, 4, 4, "FD");
+    doc.setFont("courier", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(rr, rg, rb);
+    doc.text(`⚠ DETECTED ANOMALIES (${result.issues.length})`, M + 12, y + 16);
+    doc.setFont("courier", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(255, 179, 179);
+    result.issues.forEach((iss, i) => {
+      doc.text(`→ ${iss}`, M + 14, y + 30 + i * 14);
+    });
+    y += ah + 16;
+  }
+
+  // Extracted Fields
+  const fEntries = Object.entries(result.fields);
+  const fh = 28 + fEntries.length * 18;
+  drawCard(doc, M, y, W - 2 * M, fh);
+  doc.setFont("courier", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("EXTRACTED FIELDS", M + 12, y + 18);
+  doc.setFont("courier", "normal");
+  fEntries.forEach(([k, v], i) => {
+    const ry = y + 32 + i * 18;
+    doc.setTextColor(mr, mg, mb);
+    doc.setFontSize(8);
+    doc.text(k, M + 12, ry);
+    doc.setTextColor(tr, tg, tb);
+    doc.setFontSize(10);
+    doc.text(v.value, M + 180, ry);
+    doc.setTextColor(...hexToRgb(confColor(v.confidence)));
+    doc.setFont("courier", "bold");
+    doc.setFontSize(9);
+    doc.text(`${v.confidence}%`, W - M - 14, ry, { align: "right" });
+    doc.setFont("courier", "normal");
+    if (i < fEntries.length - 1) {
+      doc.setDrawColor(...hexToRgb(C.border));
+      doc.setLineWidth(0.3);
+      doc.line(M + 12, ry + 6, W - M - 12, ry + 6);
+    }
+  });
+  y += fh + 16;
+
+  // Reasoning
+  if (y > H - 120) { doc.addPage(); doc.setFillColor(br, bg, bb); doc.rect(0, 0, W, H, "F"); y = M; }
+  const reasonLines = doc.splitTextToSize(result.reasoning, W - 2 * M - 24);
+  const rh = 30 + reasonLines.length * 12;
+  drawCard(doc, M, y, W - 2 * M, rh);
+  doc.setFont("courier", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(mr, mg, mb);
+  doc.text("LLM REASONING (MISTRAL-7B)", M + 12, y + 18);
+  doc.setFont("courier", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(tr, tg, tb);
+  doc.text(reasonLines, M + 12, y + 34);
+
+  // Footer on each page
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...hexToRgb(C.border));
+    doc.setLineWidth(0.3);
+    doc.line(M, H - 30, W - M, H - 30);
+    doc.setFont("courier", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(mr, mg, mb);
+    doc.text("CERTVALIDATOR · CONFIDENTIAL · JWT-AUTH · TLS ENCRYPTED", M, H - 18);
+    doc.text(`PAGE ${p} / ${pages}`, W - M, H - 18, { align: "right" });
+  }
+
+  doc.save(`certvalidator_${result.filename.replace(/\.[^.]+$/, "")}_report.pdf`);
+}
+
+function drawCard(doc: jsPDF, x: number, y: number, w: number, h: number) {
+  const [cr, cg, cb] = hexToRgb(C.card);
+  const [br, bg, bb] = hexToRgb(C.border);
+  doc.setFillColor(cr, cg, cb);
+  doc.setDrawColor(br, bg, bb);
+  doc.setLineWidth(0.5);
+  doc.roundedRect(x, y, w, h, 4, 4, "FD");
+}
+
 // ============ SCORE RING ============
 function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: string } }) {
   const r = 46, c = 2 * Math.PI * r;
