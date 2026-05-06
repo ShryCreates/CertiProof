@@ -1,0 +1,28 @@
+# CertValidator ML — Python 3.10+
+# Install: pip install -r requirements.txt
+
+# ── Deep learning ─────────────────────────────────────────────────────────────
+torch==2.3.1
+torchvision==0.18.1
+
+# ── Model zoo (EfficientNet-B4 pretrained weights) ────────────────────────────
+timm==1.0.9
+
+# ── Computer vision ───────────────────────────────────────────────────────────
+opencv-python==4.10.0.84
+Pillow==10.4.0
+
+# ── Numerical computing ───────────────────────────────────────────────────────
+numpy==1.26.4
+
+# ── ML utilities ─────────────────────────────────────────────────────────────
+scikit-learn==1.5.1
+
+# ── Experiment tracking ───────────────────────────────────────────────────────
+mlflow==2.15.1
+
+# ── Progress bars ─────────────────────────────────────────────────────────────
+tqdm==4.66.5
+
+# ── Visualisation (optional, for plotting training curves) ────────────────────
+matplotlib==3.9.2
