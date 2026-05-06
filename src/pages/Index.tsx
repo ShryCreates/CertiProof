@@ -482,7 +482,7 @@ function MetricsRow({ result }: { result: Result }) {
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
       {cards.map((c) => (
         <div key={c.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 18 }}>
-          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 10 }}>{c.label}</div>
+          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 10, fontFamily: MONO }}>{c.label}</div>
           <div style={{ fontSize: 26, color: c.color, fontWeight: "bold" }}>{Math.round(c.value * 100)}%</div>
         </div>
       ))}
