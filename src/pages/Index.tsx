@@ -18,7 +18,8 @@ const C = {
   purple: "#a855f7",
   cyan: "#06b6d4",
 };
-const FONT = "'Courier New', monospace";
+const FONT = "'Space Grotesk', 'Inter', system-ui, sans-serif";
+const MONO = "'JetBrains Mono', 'Courier New', monospace";
 
 // ============ MOCK DATA ============
 type Verdict = "GENUINE" | "SUSPICIOUS" | "FAKE";
@@ -173,8 +174,8 @@ function LoginPage({ isRegister, setIsRegister, email, setEmail, onLogin }: {
       <div style={{ width: 420, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 36 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 42 }}>🛡</div>
-          <h1 style={{ fontSize: 22, letterSpacing: 2, margin: "8px 0 4px" }}>CERTVALIDATOR</h1>
-          <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1 }}>FORENSIC CERTIFICATE ANALYSIS</div>
+          <h1 style={{ fontSize: 24, letterSpacing: 4, margin: "10px 0 4px", fontFamily: MONO, fontWeight: 700 }}>CERTVALIDATOR</h1>
+          <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, fontFamily: MONO }}>FORENSIC CERTIFICATE ANALYSIS</div>
         </div>
         <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, marginBottom: 24 }}>
           {[["LOGIN", false], ["REGISTER", true]].map(([label, reg]) => (
@@ -218,7 +219,7 @@ const inputStyle = (focused: boolean): CSSProperties => ({
 });
 
 const Label = ({ children }: { children: React.ReactNode }) =>
-  <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 6 }}>{children}</div>;
+  <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1.5, marginBottom: 6, fontFamily: MONO }}>{children}</div>;
 
 // ============ SIDEBAR ============
 function Sidebar({ tab, setTab, email, onLogout }: {
@@ -245,16 +246,16 @@ function Sidebar({ tab, setTab, email, onLogout }: {
     <aside style={{ width: 200, background: C.card, borderRight: `1px solid ${C.border}`, padding: 18, display: "flex", flexDirection: "column" }}>
       <div style={{ marginBottom: 28, padding: "4px 6px" }}>
         <div style={{ fontSize: 22 }}>🛡</div>
-        <div style={{ fontSize: 13, letterSpacing: 2, marginTop: 6, fontWeight: "bold" }}>CERTVALIDATOR</div>
-        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 1, marginTop: 2 }}>v2.4.1</div>
+        <div style={{ fontSize: 14, letterSpacing: 3, marginTop: 6, fontWeight: 700, fontFamily: MONO }}>CERTVALIDATOR</div>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 1, marginTop: 4, fontFamily: MONO }}>v2.4.1</div>
       </div>
       <div style={{ flex: 1 }}>
         {navItem("upload", "📤", "UPLOAD")}
         {navItem("history", "🕐", "HISTORY")}
       </div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, marginTop: 14 }}>
-        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 4 }}>SIGNED IN</div>
-        <div style={{ fontSize: 11, color: C.text, marginBottom: 12, wordBreak: "break-all" }}>{email}</div>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 2, marginBottom: 6, fontFamily: MONO }}>SIGNED IN</div>
+        <div style={{ fontSize: 11, color: C.text, marginBottom: 12, wordBreak: "break-all", fontFamily: MONO }}>{email}</div>
         <button onClick={onLogout} style={{
           width: "100%", padding: "8px 10px", background: "transparent",
           border: `1px solid ${C.border}`, color: C.muted, fontFamily: FONT,
@@ -285,7 +286,7 @@ function UploadPage({ onTrigger }: { onTrigger: (v: Verdict) => void }) {
 
   return (
     <div>
-      <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0 }}>CERTIFICATE ANALYSIS</h1>
+      <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>CERTIFICATE ANALYSIS</h1>
       <div style={{ fontSize: 12, color: C.muted, marginTop: 6, letterSpacing: 0.5 }}>
         Upload a certificate to run forensic analysis through the full AI pipeline
       </div>
@@ -322,7 +323,7 @@ function UploadPage({ onTrigger }: { onTrigger: (v: Verdict) => void }) {
       </div>
 
       <div style={{ marginTop: 28, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-        <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 14, fontFamily: MONO }}>
           📋 ANALYSIS PIPELINE
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
@@ -343,8 +344,8 @@ function LoadingScreen({ step }: { step: number }) {
   const pct = Math.min(100, (step / STEPS.length) * 100);
   return (
     <div style={{ maxWidth: 720, margin: "60px auto" }}>
-      <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0, textAlign: "center" }}>ANALYZING CERTIFICATE...</h1>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, textAlign: "center", marginTop: 8 }}>
+      <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, textAlign: "center", fontWeight: 700, fontFamily: MONO }}>ANALYZING CERTIFICATE...</h1>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, textAlign: "center", marginTop: 8, fontFamily: MONO }}>
         RUNNING FORENSIC PIPELINE
       </div>
       <div style={{ marginTop: 32, height: 6, background: C.border, borderRadius: 4, overflow: "hidden" }}>
@@ -382,8 +383,8 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0 }}>ANALYSIS REPORT</h1>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 6, letterSpacing: 1 }}>
+          <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>ANALYSIS REPORT</h1>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 8, letterSpacing: 1, fontFamily: MONO }}>
             {result.filename} · {result.date}
           </div>
         </div>
@@ -400,7 +401,7 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
 
       {result.issues.length > 0 && (
         <div style={{ marginTop: 20, background: C.redBg, border: `1px solid ${C.red}`, borderRadius: 8, padding: 18 }}>
-          <div style={{ fontSize: 11, color: C.red, letterSpacing: 1, marginBottom: 10, fontWeight: "bold" }}>
+          <div style={{ fontSize: 11, color: C.red, letterSpacing: 2, marginBottom: 10, fontWeight: 700, fontFamily: MONO }}>
             ⚠ DETECTED ANOMALIES ({result.issues.length})
           </div>
           {result.issues.map((iss, i) => (
@@ -443,7 +444,7 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
   const offset = c - (result.score / 100) * c;
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 24, textAlign: "center" }}>
-      <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 18 }}>VERDICT</div>
+      <div style={{ fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 18, fontFamily: MONO }}>VERDICT</div>
       <svg width={140} height={140} viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
         <circle cx={60} cy={60} r={r} fill="none" stroke={C.border} strokeWidth={8} />
         <circle cx={60} cy={60} r={r} fill="none" stroke={vc.fg} strokeWidth={8}
@@ -451,19 +452,19 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
           style={{ transition: "stroke-dasharray 1s ease, stroke-dashoffset 1s ease" }} />
       </svg>
       <div style={{ marginTop: -98, height: 98, display: "flex", flexDirection: "column", justifyContent: "center", pointerEvents: "none" }}>
-        <div style={{ fontSize: 32, color: vc.fg, fontWeight: "bold", letterSpacing: 1 }}>{result.score}</div>
-        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 2, marginTop: 2 }}>TRUST SCORE</div>
+        <div style={{ fontSize: 38, color: vc.fg, fontWeight: 700, letterSpacing: 1, fontFamily: MONO }}>{result.score}</div>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginTop: 4, fontFamily: MONO }}>TRUST SCORE</div>
       </div>
       <div style={{ marginTop: 18 }}>
         <span style={{
-          display: "inline-block", padding: "8px 18px", borderRadius: 999,
+          display: "inline-block", padding: "9px 22px", borderRadius: 999,
           background: vc.bg, border: `1px solid ${vc.fg}`, color: vc.fg,
-          fontSize: 12, letterSpacing: 2, fontWeight: "bold",
+          fontSize: 12, letterSpacing: 3, fontWeight: 700, fontFamily: MONO,
         }}>{result.verdict}</span>
       </div>
       <div style={{ marginTop: 22, padding: 12, background: C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
-        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 6 }}>INSTITUTION MATCH</div>
-        <div style={{ fontSize: 13, color: result.institution_match ? C.green : C.red, letterSpacing: 1 }}>
+        <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 6, fontFamily: MONO }}>INSTITUTION MATCH</div>
+        <div style={{ fontSize: 13, color: result.institution_match ? C.green : C.red, letterSpacing: 1.5, fontFamily: MONO, fontWeight: 600 }}>
           {result.institution_match ? "✓ VERIFIED" : "✕ NOT FOUND"}
         </div>
       </div>
@@ -481,8 +482,8 @@ function MetricsRow({ result }: { result: Result }) {
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
       {cards.map((c) => (
         <div key={c.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 18 }}>
-          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1, marginBottom: 10 }}>{c.label}</div>
-          <div style={{ fontSize: 26, color: c.color, fontWeight: "bold" }}>{Math.round(c.value * 100)}%</div>
+          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 10, fontFamily: MONO }}>{c.label}</div>
+          <div style={{ fontSize: 30, color: c.color, fontWeight: 700, fontFamily: MONO, letterSpacing: -0.5 }}>{Math.round(c.value * 100)}<span style={{ fontSize: 16, opacity: 0.7 }}>%</span></div>
         </div>
       ))}
     </div>
@@ -497,17 +498,17 @@ function ContributionChart({ result }: { result: Result }) {
   ];
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 16 }}>SCORE CONTRIBUTION (WEIGHTED)</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 16, fontFamily: MONO }}>SCORE CONTRIBUTION (WEIGHTED)</div>
       {bars.map((b) => (
         <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.text, letterSpacing: 1, width: 80 }}>{b.label}</div>
+          <div style={{ fontSize: 11, color: C.text, letterSpacing: 1.5, width: 80, fontFamily: MONO, fontWeight: 600 }}>{b.label}</div>
           <div style={{ flex: 1, height: 18, background: C.bg, borderRadius: 4, overflow: "hidden", border: `1px solid ${C.border}` }}>
             <div style={{
               width: `${b.weight}%`, height: "100%",
               background: b.color, transition: "width 0.8s ease",
             }} />
           </div>
-          <div style={{ fontSize: 11, color: b.color, width: 44, textAlign: "right", letterSpacing: 1 }}>{b.weight}%</div>
+          <div style={{ fontSize: 12, color: b.color, width: 48, textAlign: "right", letterSpacing: 1, fontFamily: MONO, fontWeight: 700 }}>{b.weight}%</div>
         </div>
       ))}
     </div>
@@ -517,16 +518,16 @@ function ContributionChart({ result }: { result: Result }) {
 function FieldsCard({ result }: { result: Result }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 14 }}>EXTRACTED FIELDS</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 14, fontFamily: MONO }}>EXTRACTED FIELDS</div>
       {Object.entries(result.fields).map(([k, v], i, arr) => (
         <div key={k} style={{
           display: "flex", justifyContent: "space-between", alignItems: "center",
           padding: "10px 0", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none",
         }}>
-          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1 }}>{k}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontSize: 12, color: C.text }}>{v.value}</div>
-            <div style={{ fontSize: 10, color: confColor(v.confidence), letterSpacing: 1, minWidth: 36, textAlign: "right" }}>
+          <div style={{ fontSize: 10, color: C.muted, letterSpacing: 1.5, fontFamily: MONO }}>{k}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ fontSize: 13, color: C.text, fontFamily: MONO, fontWeight: 500 }}>{v.value}</div>
+            <div style={{ fontSize: 10, color: confColor(v.confidence), letterSpacing: 1, minWidth: 38, textAlign: "right", fontFamily: MONO, fontWeight: 600 }}>
               {v.confidence}%
             </div>
           </div>
@@ -539,8 +540,8 @@ function FieldsCard({ result }: { result: Result }) {
 function ReasoningCard({ result }: { result: Result }) {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 12 }}>🧠 LLM REASONING</div>
-      <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7 }}>{result.reasoning}</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 14, fontFamily: MONO }}>🧠 LLM REASONING</div>
+      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.75 }}>{result.reasoning}</div>
     </div>
   );
 }
@@ -548,12 +549,12 @@ function ReasoningCard({ result }: { result: Result }) {
 function HeatmapCard() {
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 22 }}>
-      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 12 }}>🗺 GRADCAM HEATMAP</div>
+      <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 12, fontFamily: MONO }}>🗺 GRADCAM HEATMAP</div>
       <div style={{
         height: 120, borderRadius: 6, border: `1px dashed ${C.border}`,
         background: "linear-gradient(135deg, #0a1530 0%, #1a0a30 50%, #2a0a0a 100%)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 11, color: C.muted, letterSpacing: 1, marginBottom: 12,
+        fontSize: 11, color: C.muted, letterSpacing: 2, marginBottom: 12, fontFamily: MONO,
       }}>HEATMAP PREVIEW</div>
       <button style={{ ...btnGhost(), width: "100%" }}>VIEW OVERLAY</button>
     </div>
@@ -564,7 +565,7 @@ function HeatmapCard() {
 function HistoryPage({ onOpen }: { onOpen: (v: Verdict) => void }) {
   return (
     <div>
-      <h1 style={{ fontSize: 22, letterSpacing: 2, margin: 0 }}>ANALYSIS HISTORY</h1>
+      <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>ANALYSIS HISTORY</h1>
       <div style={{ fontSize: 12, color: C.muted, marginTop: 6, letterSpacing: 0.5 }}>
         {HISTORY.length} records · last 30 days
       </div>
@@ -572,7 +573,7 @@ function HistoryPage({ onOpen }: { onOpen: (v: Verdict) => void }) {
         <div style={{
           display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1.4fr",
           padding: "14px 20px", background: C.bg, borderBottom: `1px solid ${C.border}`,
-          fontSize: 10, color: C.muted, letterSpacing: 2,
+          fontSize: 10, color: C.muted, letterSpacing: 2, fontFamily: MONO,
         }}>
           <div>FILENAME</div><div>VERDICT</div><div>SCORE</div><div>DATE</div>
         </div>
@@ -589,17 +590,17 @@ function HistoryPage({ onOpen }: { onOpen: (v: Verdict) => void }) {
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <div>
-                <div style={{ fontSize: 12, color: C.text }}>{h.filename}</div>
-                <div style={{ fontSize: 10, color: C.muted, marginTop: 3, letterSpacing: 0.5 }}>{h.institution}</div>
+                <div style={{ fontSize: 13, color: C.text, fontFamily: MONO, fontWeight: 500 }}>{h.filename}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4, letterSpacing: 0.3 }}>{h.institution}</div>
               </div>
               <div>
                 <span style={{
-                  fontSize: 10, padding: "4px 10px", borderRadius: 999,
-                  background: vc.bg, border: `1px solid ${vc.fg}`, color: vc.fg, letterSpacing: 1, fontWeight: "bold",
+                  fontSize: 10, padding: "5px 12px", borderRadius: 999,
+                  background: vc.bg, border: `1px solid ${vc.fg}`, color: vc.fg, letterSpacing: 1.5, fontWeight: 700, fontFamily: MONO,
                 }}>{h.v}</span>
               </div>
-              <div style={{ fontSize: 14, color: vc.fg, fontWeight: "bold" }}>{score}</div>
-              <div style={{ fontSize: 11, color: C.muted, letterSpacing: 0.5 }}>{h.date}</div>
+              <div style={{ fontSize: 16, color: vc.fg, fontWeight: 700, fontFamily: MONO }}>{score}</div>
+              <div style={{ fontSize: 11, color: C.muted, letterSpacing: 0.5, fontFamily: MONO }}>{h.date}</div>
             </div>
           );
         })}
