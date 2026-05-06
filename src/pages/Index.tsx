@@ -174,8 +174,8 @@ function LoginPage({ isRegister, setIsRegister, email, setEmail, onLogin }: {
       <div style={{ width: 420, background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 36 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div style={{ fontSize: 42 }}>🛡</div>
-          <h1 style={{ fontSize: 22, letterSpacing: 2, margin: "8px 0 4px" }}>CERTVALIDATOR</h1>
-          <div style={{ fontSize: 11, color: C.muted, letterSpacing: 1 }}>FORENSIC CERTIFICATE ANALYSIS</div>
+          <h1 style={{ fontSize: 24, letterSpacing: 4, margin: "10px 0 4px", fontFamily: MONO, fontWeight: 700 }}>CERTVALIDATOR</h1>
+          <div style={{ fontSize: 11, color: C.muted, letterSpacing: 2, fontFamily: MONO }}>FORENSIC CERTIFICATE ANALYSIS</div>
         </div>
         <div style={{ display: "flex", borderBottom: `1px solid ${C.border}`, marginBottom: 24 }}>
           {[["LOGIN", false], ["REGISTER", true]].map(([label, reg]) => (
