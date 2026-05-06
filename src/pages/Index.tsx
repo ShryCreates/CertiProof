@@ -483,7 +483,7 @@ function MetricsRow({ result }: { result: Result }) {
       {cards.map((c) => (
         <div key={c.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 18 }}>
           <div style={{ fontSize: 10, color: C.muted, letterSpacing: 2, marginBottom: 10, fontFamily: MONO }}>{c.label}</div>
-          <div style={{ fontSize: 26, color: c.color, fontWeight: "bold" }}>{Math.round(c.value * 100)}%</div>
+          <div style={{ fontSize: 30, color: c.color, fontWeight: 700, fontFamily: MONO, letterSpacing: -0.5 }}>{Math.round(c.value * 100)}<span style={{ fontSize: 16, opacity: 0.7 }}>%</span></div>
         </div>
       ))}
     </div>
