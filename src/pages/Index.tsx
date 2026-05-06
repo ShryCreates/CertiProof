@@ -384,7 +384,7 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ fontSize: 26, letterSpacing: 1, margin: 0, fontWeight: 700, fontFamily: MONO }}>ANALYSIS REPORT</h1>
-          <div style={{ fontSize: 11, color: C.muted, marginTop: 6, letterSpacing: 1 }}>
+          <div style={{ fontSize: 11, color: C.muted, marginTop: 8, letterSpacing: 1, fontFamily: MONO }}>
             {result.filename} · {result.date}
           </div>
         </div>
