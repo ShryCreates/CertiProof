@@ -452,8 +452,8 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
           style={{ transition: "stroke-dasharray 1s ease, stroke-dashoffset 1s ease" }} />
       </svg>
       <div style={{ marginTop: -98, height: 98, display: "flex", flexDirection: "column", justifyContent: "center", pointerEvents: "none" }}>
-        <div style={{ fontSize: 32, color: vc.fg, fontWeight: "bold", letterSpacing: 1 }}>{result.score}</div>
-        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 2, marginTop: 2 }}>TRUST SCORE</div>
+        <div style={{ fontSize: 38, color: vc.fg, fontWeight: 700, letterSpacing: 1, fontFamily: MONO }}>{result.score}</div>
+        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginTop: 4, fontFamily: MONO }}>TRUST SCORE</div>
       </div>
       <div style={{ marginTop: 18 }}>
         <span style={{
