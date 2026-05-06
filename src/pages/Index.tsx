@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, CSSProperties, DragEvent } from "react";
 import { jsPDF } from "jspdf";
+import QRCode from "qrcode";
 
 // ============ DESIGN TOKENS ============
 const C = {
@@ -380,6 +381,23 @@ function LoadingScreen({ step }: { step: number }) {
 // ============ RESULT ============
 function ResultPage({ result, onReset }: { result: Result; onReset: () => void }) {
   const vc = verdictColor(result.verdict);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const handleDownloadPdf = async () => {
+    setPdfError(null);
+    setPdfLoading(true);
+    // Yield to the browser so the state update renders before the synchronous PDF work blocks the thread
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    try {
+      await generatePdfReport(result);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setPdfError(`PDF generation failed: ${message}`);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -419,8 +437,45 @@ function ResultPage({ result, onReset }: { result: Result; onReset: () => void }
         </div>
       </div>
 
+      {pdfError && (
+        <div role="alert" style={{
+          marginTop: 20, padding: "14px 18px",
+          background: C.redBg, border: `1px solid ${C.red}`, borderRadius: 8,
+          display: "flex", alignItems: "flex-start", gap: 12,
+        }}>
+          <span style={{ fontSize: 16, lineHeight: 1, flexShrink: 0 }}>⚠</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.red, letterSpacing: 2, fontWeight: 700, fontFamily: MONO, marginBottom: 4 }}>
+              PDF GENERATION FAILED
+            </div>
+            <div style={{ fontSize: 12, color: "#ffb3b3", lineHeight: 1.6 }}>{pdfError}</div>
+          </div>
+          <button
+            onClick={() => setPdfError(null)}
+            aria-label="Dismiss error"
+            style={{
+              background: "transparent", border: "none", color: C.red,
+              fontSize: 16, cursor: "pointer", lineHeight: 1, flexShrink: 0, padding: 0,
+            }}
+          >✕</button>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 12, marginTop: 24, flexWrap: "wrap" }}>
-        <button style={btnPrimary()} onClick={() => generatePdfReport(result)}>📥 DOWNLOAD PDF REPORT</button>
+        <button
+          style={{ ...btnPrimary(), opacity: pdfLoading ? 0.65 : 1, cursor: pdfLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8 }}          onClick={handleDownloadPdf}
+          disabled={pdfLoading}
+        >
+          {pdfLoading ? (
+            <>
+              <svg width={14} height={14} viewBox="0 0 14 14" style={{ animation: "spin 0.8s linear infinite", flexShrink: 0 }}>
+                <circle cx={7} cy={7} r={5} fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth={2} />
+                <path d="M7 2 A5 5 0 0 1 12 7" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" />
+              </svg>
+              GENERATING...
+            </>
+          ) : "📥 DOWNLOAD PDF REPORT"}
+        </button>
         <button style={btnGhost()} onClick={() => {
           navigator.clipboard?.writeText(`CertValidator Report — ${result.filename}\nVerdict: ${result.verdict} (Score ${result.score}/100)`);
         }}>🔗 SHARE RESULT</button>
@@ -447,43 +502,93 @@ function hexToRgb(hex: string): [number, number, number] {
   return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
 }
 
-function generatePdfReport(result: Result) {
+async function generatePdfReport(result: Result) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
   const M = 40;
+  // Usable vertical range: below the page-1 header (100pt) / below continuation header (56pt), above footer (50pt)
+  const FOOTER_Y = H - 50;
+  const CONT_HEADER_H = 56; // height of the slim continuation header on pages 2+
   const vc = verdictColor(result.verdict);
 
-  // Page background
+  // ── colour shortcuts ──────────────────────────────────────────────────────
   const [br, bg, bb] = hexToRgb(C.bg);
-  doc.setFillColor(br, bg, bb);
-  doc.rect(0, 0, W, H, "F");
-
-  // Header bar
   const [cr, cg, cb] = hexToRgb(C.card);
+  const [bdr, bdg, bdb] = hexToRgb(C.borderHi);
+  const [tr, tg, tb] = hexToRgb(C.text);
+  const [mr, mg, mb] = hexToRgb(C.muted);
+  const [vr, vg, vb] = hexToRgb(vc.fg);
+  const [vbr, vbg, vbb] = hexToRgb(vc.bg);
+
+  // ── helpers ───────────────────────────────────────────────────────────────
+
+  /** Fill the current page with the dark background colour. */
+  const fillPageBg = () => {
+    doc.setFillColor(br, bg, bb);
+    doc.rect(0, 0, W, H, "F");
+  };
+
+  /**
+   * Add a new page, paint its background, draw a slim continuation header,
+   * and return the y cursor ready for content.
+   */
+  const newPage = (): number => {
+    doc.addPage();
+    fillPageBg();
+    // slim header bar
+    doc.setFillColor(cr, cg, cb);
+    doc.rect(0, 0, W, CONT_HEADER_H, "F");
+    doc.setDrawColor(bdr, bdg, bdb);
+    doc.setLineWidth(0.5);
+    doc.line(0, CONT_HEADER_H, W, CONT_HEADER_H);
+    doc.setFont("courier", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(tr, tg, tb);
+    doc.text("CERTVALIDATOR", M, 24);
+    doc.setFont("courier", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(mr, mg, mb);
+    doc.text("FORENSIC CERTIFICATE ANALYSIS REPORT (CONTINUED)", M, 38);
+    // verdict pill (right side)
+    doc.setFillColor(vbr, vbg, vbb);
+    doc.setDrawColor(vr, vg, vb);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(W - M - 90, 14, 90, 24, 12, 12, "FD");
+    doc.setTextColor(vr, vg, vb);
+    doc.setFont("courier", "bold");
+    doc.setFontSize(10);
+    doc.text(result.verdict, W - M - 45, 30, { align: "center" });
+    return CONT_HEADER_H + 16;
+  };
+
+  /**
+   * Ensure there is at least `needed` pts of space below `y`.
+   * If not, starts a new page and returns the fresh y cursor.
+   */
+  const ensureSpace = (y: number, needed: number): number =>
+    y + needed > FOOTER_Y ? newPage() : y;
+
+  // ── PAGE 1 header ─────────────────────────────────────────────────────────
+  fillPageBg();
   doc.setFillColor(cr, cg, cb);
   doc.rect(0, 0, W, 70, "F");
-  const [bdr, bdg, bdb] = hexToRgb(C.borderHi);
   doc.setDrawColor(bdr, bdg, bdb);
   doc.setLineWidth(0.5);
   doc.line(0, 70, W, 70);
 
   doc.setFont("courier", "bold");
   doc.setFontSize(18);
-  const [tr, tg, tb] = hexToRgb(C.text);
   doc.setTextColor(tr, tg, tb);
-  doc.text("🛡 CERTVALIDATOR", M, 32);
+  doc.text("CERTVALIDATOR", M, 32);
 
   doc.setFont("courier", "normal");
   doc.setFontSize(8);
-  const [mr, mg, mb] = hexToRgb(C.muted);
   doc.setTextColor(mr, mg, mb);
   doc.text("FORENSIC CERTIFICATE ANALYSIS REPORT", M, 48);
   doc.text(`GENERATED ${new Date().toISOString().slice(0, 19).replace("T", " ")} UTC`, M, 60);
 
-  // Verdict pill
-  const [vr, vg, vb] = hexToRgb(vc.fg);
-  const [vbr, vbg, vbb] = hexToRgb(vc.bg);
+  // verdict pill
   doc.setFillColor(vbr, vbg, vbb);
   doc.setDrawColor(vr, vg, vb);
   doc.setLineWidth(1);
@@ -495,7 +600,7 @@ function generatePdfReport(result: Result) {
 
   let y = 100;
 
-  // File info card
+  // ── File info card (fixed height, always fits on page 1) ──────────────────
   drawCard(doc, M, y, W - 2 * M, 60);
   doc.setFont("courier", "normal");
   doc.setFontSize(8);
@@ -506,10 +611,10 @@ function generatePdfReport(result: Result) {
   doc.setFontSize(11);
   doc.text(result.filename, M + 90, y + 16);
   doc.text(result.date, M + 90, y + 38);
-
   y += 80;
 
-  // Trust score + metrics row
+  // ── Trust score + metrics row (fixed height 160pt) ────────────────────────
+  y = ensureSpace(y, 160);
   drawCard(doc, M, y, 180, 140);
   doc.setFont("courier", "normal");
   doc.setFontSize(8);
@@ -530,7 +635,6 @@ function generatePdfReport(result: Result) {
   doc.setFontSize(10);
   doc.text(result.institution_match ? "VERIFIED" : "NOT FOUND", M + 90, y + 124, { align: "center" });
 
-  // Metric cards
   const metrics = [
     { label: "FORGERY SCORE", v: result.forgery, color: C.blue, weight: "45%" },
     { label: "FIELD CONFIDENCE", v: result.field, color: C.purple, weight: "35%" },
@@ -556,39 +660,42 @@ function generatePdfReport(result: Result) {
     doc.text(`WEIGHT ${m.weight}`, x + 10, y + 58);
   });
 
-  // Contribution bars
-  const cy = y + 75;
-  drawCard(doc, mxStart, cy, W - mxStart - M, 65);
+  const barSectionY = y + 75;
+  drawCard(doc, mxStart, barSectionY, W - mxStart - M, 65);
   doc.setFont("courier", "normal");
   doc.setFontSize(7);
   doc.setTextColor(mr, mg, mb);
-  doc.text("SCORE CONTRIBUTION (WEIGHTED)", mxStart + 10, cy + 14);
+  doc.text("SCORE CONTRIBUTION (WEIGHTED)", mxStart + 10, barSectionY + 14);
   const barX = mxStart + 70;
   const barMaxW = W - mxStart - M - 110;
   metrics.forEach((m, i) => {
-    const by = cy + 26 + i * 13;
-    const w = barMaxW * (parseInt(m.weight) / 100);
+    const by = barSectionY + 26 + i * 13;
+    const bw = barMaxW * (parseInt(m.weight) / 100);
     doc.setTextColor(tr, tg, tb);
     doc.setFontSize(7);
     doc.text(m.label.split(" ")[0], mxStart + 10, by + 7);
     doc.setFillColor(...hexToRgb(C.bg));
     doc.rect(barX, by, barMaxW, 8, "F");
     doc.setFillColor(...hexToRgb(m.color));
-    doc.rect(barX, by, w, 8, "F");
+    doc.rect(barX, by, bw, 8, "F");
     doc.setTextColor(...hexToRgb(m.color));
     doc.text(m.weight, barX + barMaxW + 6, by + 7);
   });
-
   y += 160;
 
-  // Anomalies
+  // ── Anomalies (each row is 14pt; guard the whole block or row-by-row) ─────
   if (result.issues.length > 0) {
-    const ah = 24 + result.issues.length * 14;
     const [rr, rg, rb] = hexToRgb(C.red);
+    const rowH = 14;
+    const headerH = 30; // label + top padding
+    const blockH = headerH + result.issues.length * rowH + 8;
+
+    y = ensureSpace(y, blockH);
+
     doc.setFillColor(...hexToRgb(C.redBg));
     doc.setDrawColor(rr, rg, rb);
     doc.setLineWidth(0.8);
-    doc.roundedRect(M, y, W - 2 * M, ah, 4, 4, "FD");
+    doc.roundedRect(M, y, W - 2 * M, blockH, 4, 4, "FD");
     doc.setFont("courier", "bold");
     doc.setFontSize(9);
     doc.setTextColor(rr, rg, rb);
@@ -597,57 +704,113 @@ function generatePdfReport(result: Result) {
     doc.setFontSize(9);
     doc.setTextColor(255, 179, 179);
     result.issues.forEach((iss, i) => {
-      doc.text(`→ ${iss}`, M + 14, y + 30 + i * 14);
+      doc.text(`→ ${iss}`, M + 14, y + headerH + i * rowH);
     });
-    y += ah + 16;
+    y += blockH + 16;
   }
 
-  // Extracted Fields
+  // ── Extracted Fields — row-by-row with page breaks ────────────────────────
   const fEntries = Object.entries(result.fields);
-  const fh = 28 + fEntries.length * 18;
-  drawCard(doc, M, y, W - 2 * M, fh);
+  const ROW_H = 20;
+  const SECTION_HEADER_H = 28;
+
+  // Section heading — needs at least heading + 1 row
+  y = ensureSpace(y, SECTION_HEADER_H + ROW_H);
+
+  // Draw the section label (no bounding box — we'll draw rows individually)
   doc.setFont("courier", "bold");
   doc.setFontSize(9);
   doc.setTextColor(mr, mg, mb);
-  doc.text("EXTRACTED FIELDS", M + 12, y + 18);
-  doc.setFont("courier", "normal");
+  doc.text("EXTRACTED FIELDS", M + 12, y + 14);
+
+  // thin top border line
+  doc.setDrawColor(...hexToRgb(C.borderHi));
+  doc.setLineWidth(0.5);
+  doc.line(M, y, W - M, y);
+  doc.line(M, y + SECTION_HEADER_H, W - M, y + SECTION_HEADER_H);
+
+  y += SECTION_HEADER_H;
+
   fEntries.forEach(([k, v], i) => {
-    const ry = y + 32 + i * 18;
+    y = ensureSpace(y, ROW_H + 4);
+
+    // row background (alternating subtle tint)
+    if (i % 2 === 0) {
+      doc.setFillColor(cr, cg, cb);
+      doc.rect(M, y, W - 2 * M, ROW_H, "F");
+    }
+
     doc.setTextColor(mr, mg, mb);
+    doc.setFont("courier", "normal");
     doc.setFontSize(8);
-    doc.text(k, M + 12, ry);
+    doc.text(k, M + 12, y + 13);
+
     doc.setTextColor(tr, tg, tb);
     doc.setFontSize(10);
-    doc.text(v.value, M + 180, ry);
+    doc.text(v.value, M + 180, y + 13);
+
     doc.setTextColor(...hexToRgb(confColor(v.confidence)));
     doc.setFont("courier", "bold");
     doc.setFontSize(9);
-    doc.text(`${v.confidence}%`, W - M - 14, ry, { align: "right" });
-    doc.setFont("courier", "normal");
-    if (i < fEntries.length - 1) {
-      doc.setDrawColor(...hexToRgb(C.border));
-      doc.setLineWidth(0.3);
-      doc.line(M + 12, ry + 6, W - M - 12, ry + 6);
-    }
-  });
-  y += fh + 16;
+    doc.text(`${v.confidence}%`, W - M - 14, y + 13, { align: "right" });
 
-  // Reasoning
-  if (y > H - 120) { doc.addPage(); doc.setFillColor(br, bg, bb); doc.rect(0, 0, W, H, "F"); y = M; }
-  const reasonLines = doc.splitTextToSize(result.reasoning, W - 2 * M - 24);
-  const rh = 30 + reasonLines.length * 12;
-  drawCard(doc, M, y, W - 2 * M, rh);
+    // row divider
+    doc.setDrawColor(...hexToRgb(C.border));
+    doc.setLineWidth(0.3);
+    doc.line(M, y + ROW_H, W - M, y + ROW_H);
+
+    y += ROW_H;
+  });
+
+  // closing border
+  doc.setDrawColor(...hexToRgb(C.borderHi));
+  doc.setLineWidth(0.5);
+  doc.line(M, y, W - M, y);
+  y += 20;
+
+  // ── LLM Reasoning — line-by-line with page breaks ─────────────────────────
+  const LINE_H = 14; // pt per line at fontSize 10
+  const reasonLines: string[] = doc.splitTextToSize(result.reasoning, W - 2 * M - 24);
+
+  // Section heading — needs at least heading + 1 line
+  y = ensureSpace(y, SECTION_HEADER_H + LINE_H);
+
   doc.setFont("courier", "bold");
   doc.setFontSize(9);
   doc.setTextColor(mr, mg, mb);
-  doc.text("LLM REASONING (MISTRAL-7B)", M + 12, y + 18);
+  doc.text("LLM REASONING (MISTRAL-7B)", M + 12, y + 14);
+  doc.setDrawColor(...hexToRgb(C.borderHi));
+  doc.setLineWidth(0.5);
+  doc.line(M, y, W - M, y);
+  doc.line(M, y + SECTION_HEADER_H, W - M, y + SECTION_HEADER_H);
+  y += SECTION_HEADER_H + 4;
+
   doc.setFont("courier", "normal");
   doc.setFontSize(10);
   doc.setTextColor(tr, tg, tb);
-  doc.text(reasonLines, M + 12, y + 34);
 
-  // Footer on each page
+  reasonLines.forEach((line) => {
+    y = ensureSpace(y, LINE_H + 4);
+    doc.text(line, M + 12, y + LINE_H);
+    y += LINE_H;
+  });
+
+  y += 12; // trailing gap
+
+  // ── Footer on every page ──────────────────────────────────────────────────
+  // Generate QR code linking to this certificate result
+  const verificationUrl = `https://certvalidator.io/verify/${result.filename.replace(/\.[^.]+$/, "")}`;
+  const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
+    width: 64,
+    margin: 0,
+    color: { dark: C.text, light: C.bg },
+  });
+
   const pages = doc.getNumberOfPages();
+  const QR_SIZE = 32;
+  const QR_X = W - M - QR_SIZE;
+  const QR_Y = H - 30 - QR_SIZE / 2;
+
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p);
     doc.setDrawColor(...hexToRgb(C.border));
@@ -657,7 +820,10 @@ function generatePdfReport(result: Result) {
     doc.setFontSize(7);
     doc.setTextColor(mr, mg, mb);
     doc.text("CERTVALIDATOR · CONFIDENTIAL · JWT-AUTH · TLS ENCRYPTED", M, H - 18);
-    doc.text(`PAGE ${p} / ${pages}`, W - M, H - 18, { align: "right" });
+    doc.text(`PAGE ${p} / ${pages}`, W - M - QR_SIZE - 10, H - 18, { align: "right" });
+    
+    // QR code in bottom-right corner
+    doc.addImage(qrDataUrl, "PNG", QR_X, QR_Y, QR_SIZE, QR_SIZE);
   }
 
   doc.save(`certvalidator_${result.filename.replace(/\.[^.]+$/, "")}_report.pdf`);
@@ -679,16 +845,18 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, padding: 24, textAlign: "center" }}>
       <div style={{ fontSize: 10, color: C.muted, letterSpacing: 3, marginBottom: 18, fontFamily: MONO }}>VERDICT</div>
-      <svg width={140} height={140} viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={60} cy={60} r={r} fill="none" stroke={C.border} strokeWidth={8} />
-        <circle cx={60} cy={60} r={r} fill="none" stroke={vc.fg} strokeWidth={8}
-          strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
-          style={{ transition: "stroke-dasharray 1s ease, stroke-dashoffset 1s ease" }} />
-      </svg>
-      <div style={{ marginTop: -98, height: 98, display: "flex", flexDirection: "column", justifyContent: "center", pointerEvents: "none" }}>
-        <div style={{ fontSize: 38, color: vc.fg, fontWeight: 700, letterSpacing: 1, fontFamily: MONO }}>{result.score}</div>
-        <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginTop: 4, fontFamily: MONO }}>TRUST SCORE</div>
+      <div style={{ position: "relative", width: 140, height: 140, margin: "0 auto" }}>
+        <svg width={140} height={140} viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
+          <circle cx={60} cy={60} r={r} fill="none" stroke={C.border} strokeWidth={8} />
+          <circle cx={60} cy={60} r={r} fill="none" stroke={vc.fg} strokeWidth={8}
+            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={offset}
+            style={{ transition: "stroke-dasharray 1s ease, stroke-dashoffset 1s ease" }} />
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+          <div style={{ fontSize: 38, color: vc.fg, fontWeight: 700, letterSpacing: 1, fontFamily: MONO }}>{result.score}</div>
+        </div>
       </div>
+      <div style={{ fontSize: 9, color: C.muted, letterSpacing: 3, marginTop: 8, fontFamily: MONO }}>TRUST SCORE</div>
       <div style={{ marginTop: 18 }}>
         <span style={{
           display: "inline-block", padding: "9px 22px", borderRadius: 999,
