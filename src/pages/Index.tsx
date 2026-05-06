@@ -457,9 +457,9 @@ function ScoreCard({ result, vc }: { result: Result; vc: { fg: string; bg: strin
       </div>
       <div style={{ marginTop: 18 }}>
         <span style={{
-          display: "inline-block", padding: "8px 18px", borderRadius: 999,
+          display: "inline-block", padding: "9px 22px", borderRadius: 999,
           background: vc.bg, border: `1px solid ${vc.fg}`, color: vc.fg,
-          fontSize: 12, letterSpacing: 2, fontWeight: "bold",
+          fontSize: 12, letterSpacing: 3, fontWeight: 700, fontFamily: MONO,
         }}>{result.verdict}</span>
       </div>
       <div style={{ marginTop: 22, padding: 12, background: C.bg, borderRadius: 6, border: `1px solid ${C.border}` }}>
