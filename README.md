@@ -208,6 +208,16 @@ Get an App Password at: https://myaccount.google.com/apppasswords
 
 ---
 
+## 📸 Preview
+<img width="617" height="803" alt="Screenshot 2026-05-15 204155" src="https://github.com/user-attachments/assets/ef68b74e-95f8-410b-881f-5f4f76f72da2" />
+<img width="1898" height="915" alt="Screenshot 2026-05-15 202741" src="https://github.com/user-attachments/assets/a362fa39-4a82-44f4-919d-00e9eba6aa26" />
+<img width="1896" height="908" alt="Screenshot 2026-05-15 204602" src="https://github.com/user-attachments/assets/b35a01ff-4074-4a59-8987-6cf5e1fecafe" />
+<img width="1896" height="876" alt="Screenshot 2026-05-15 204628" src="https://github.com/user-attachments/assets/9882fa69-4820-4419-af99-dad1c00034b8" />
+
+
+
+
+
 ## 📄 License
 
 This project is for educational purposes.
