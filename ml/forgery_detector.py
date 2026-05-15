@@ -1,5 +1,5 @@
 """
-CertValidator — Forgery Detection Module
+CertiProof — Forgery Detection Module
 =========================================
 Production-grade certificate forgery detection using:
   - EfficientNet-B4 (timm) as the backbone
@@ -34,10 +34,10 @@ logger = logging.getLogger("forgery_detector")
 
 # ── Model configuration ───────────────────────────────────────────────────────
 MODEL_CONFIG: dict = {
-    "image_width": 512,
-    "image_height": 724,
-    "batch_size": 8,
-    "epochs": 30,
+    "image_width": 224,   # reduced from 512 for CPU training speed
+    "image_height": 224,  # reduced from 724 for CPU training speed
+    "batch_size": 4,      # reduced for CPU memory
+    "epochs": 15,         # reduced from 30; increase when GPU is available
     "learning_rate": 3e-4,
     "dropout": 0.3,
     "model_name": "efficientnet_b4",
@@ -45,8 +45,8 @@ MODEL_CONFIG: dict = {
 }
 
 # Convenience aliases
-IMG_W = MODEL_CONFIG["image_width"]   # 512
-IMG_H = MODEL_CONFIG["image_height"]  # 724
+IMG_W = MODEL_CONFIG["image_width"]   # 224
+IMG_H = MODEL_CONFIG["image_height"]  # 224
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

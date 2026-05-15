@@ -1,4 +1,4 @@
-# CertValidator ML — Python 3.10+
+# CertiProof ML — Python 3.10+
 # Install: pip install -r requirements.txt
 
 # ── Deep learning ─────────────────────────────────────────────────────────────

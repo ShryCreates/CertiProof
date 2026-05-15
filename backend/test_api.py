@@ -1,5 +1,5 @@
 """
-Quick test script for CertValidator API
+Quick test script for CertiProof API
 Run: python test_api.py
 """
 
@@ -92,7 +92,7 @@ def test_history(token):
     print()
 
 if __name__ == "__main__":
-    print("=== CertValidator API Test ===\n")
+    print("=== CertiProof API Test ===\n")
     
     test_health()
     test_institutions()

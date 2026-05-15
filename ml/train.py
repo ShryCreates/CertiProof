@@ -1,38 +1,38 @@
 """
-CertValidator — Training Pipeline
+CertiProof — Training Pipeline
 ===================================
 Full training loop for the 6-channel EfficientNet-B4 forgery detector.
 
-Dataset layout expected:
+Dataset layout (actual):
     training_data/
-        genuine/   ← label 1
-        fake/      ← label 0
+        genuine/images/   ← label 1
+        fake/images/      ← label 0
 
 Features
 --------
-- Train / Val / Test split  : 70 / 15 / 15
-- Augmentations             : HorizontalFlip, Rotation, ColorJitter, RandomErasing
-- Optimiser                 : AdamW (lr=3e-4)
-- Scheduler                 : CosineAnnealingLR
-- Loss                      : CrossEntropyLoss
-- Mixed precision           : torch.cuda.amp
-- Metrics                   : accuracy, precision, recall, F1, ROC-AUC
-- Experiment tracking       : MLflow
-- Checkpointing             : best model by validation AUC → checkpoints/best_model.pth
+- Stratified Train / Val / Test split : 70 / 15 / 15
+- Class-weighted loss                 : handles imbalance automatically
+- Augmentations                       : HorizontalFlip, Rotation, ColorJitter, RandomErasing
+- Optimiser                           : AdamW (lr=3e-4)
+- Scheduler                           : CosineAnnealingLR
+- Loss                                : CrossEntropyLoss with class weights
+- Mixed precision                     : torch.cuda.amp (CUDA only)
+- Metrics                             : accuracy, precision, recall, F1, ROC-AUC
+- Experiment tracking                 : MLflow
+- Checkpointing                       : best model by validation AUC → checkpoints/best_model.pth
 """
 
 import logging
 import os
 import time
 from pathlib import Path
-from typing import Optional
 
 import mlflow
 import numpy as np
 import torch
 import torch.nn as nn
-from torch.cuda.amp import GradScaler, autocast
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.amp import GradScaler, autocast
+from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from PIL import Image
 from sklearn.metrics import (
@@ -46,7 +46,7 @@ from tqdm import tqdm
 
 from forgery_detector import MODEL_CONFIG, build_model, generate_ela, preprocess
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
@@ -56,15 +56,17 @@ logger = logging.getLogger("train")
 # ── Paths ─────────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).parent
 DATA_DIR = ROOT / "training_data"
-GENUINE_DIR = DATA_DIR / "genuine"
-FAKE_DIR = DATA_DIR / "fake"
+GENUINE_DIR = DATA_DIR / "genuine" / "images"   # ← fixed: data is in /images subdir
+FAKE_DIR    = DATA_DIR / "fake"    / "images"   # ← fixed: data is in /images subdir
 CHECKPOINT_DIR = ROOT / "checkpoints"
 CHECKPOINT_DIR.mkdir(exist_ok=True)
 BEST_MODEL_PATH = CHECKPOINT_DIR / "best_model.pth"
 
 # ── Device ────────────────────────────────────────────────────────────────────
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-logger.info("Using device: %s", DEVICE)
+# Windows: multiprocessing with DataLoader requires num_workers=0
+NUM_WORKERS = 0 if os.name == "nt" else min(4, os.cpu_count() or 1)
+logger.info("Using device: %s  |  num_workers: %d", DEVICE, NUM_WORKERS)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -73,42 +75,25 @@ logger.info("Using device: %s", DEVICE)
 
 class CertificateDataset(Dataset):
     """
-    Loads certificate images from genuine/ and fake/ directories.
-
-    Each sample is a 6-channel tensor: 3 RGB channels + 3 ELA channels.
+    Loads certificate images from genuine/images/ and fake/images/ directories.
+    Each sample → 6-channel tensor (3 RGB + 3 ELA).
     Labels: genuine = 1, fake = 0.
-
-    Parameters
-    ----------
-    image_paths : list[Path]
-        Absolute paths to image files.
-    labels : list[int]
-        Corresponding labels (0 = fake, 1 = genuine).
-    augment : bool
-        Whether to apply training augmentations.
     """
 
-    # Augmentation pipeline (applied to the RGB image as a PIL Image)
     _augment_transform = transforms.Compose([
         transforms.RandomHorizontalFlip(p=0.5),
         transforms.RandomRotation(degrees=5, fill=255),
         transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05),
-        transforms.ToTensor(),                          # → (3, H, W) float [0,1]
+        transforms.ToTensor(),
         transforms.RandomErasing(p=0.3, scale=(0.02, 0.1), ratio=(0.3, 3.3), value=1.0),
     ])
 
-    # Inference-only transform (no augmentation)
     _base_transform = transforms.Compose([
-        transforms.ToTensor(),                          # → (3, H, W) float [0,1]
+        transforms.ToTensor(),
     ])
 
-    def __init__(
-        self,
-        image_paths: list[Path],
-        labels: list[int],
-        augment: bool = False,
-    ) -> None:
-        assert len(image_paths) == len(labels), "Paths and labels must have equal length"
+    def __init__(self, image_paths: list[Path], labels: list[int], augment: bool = False) -> None:
+        assert len(image_paths) == len(labels)
         self.image_paths = image_paths
         self.labels = labels
         self.augment = augment
@@ -117,108 +102,127 @@ class CertificateDataset(Dataset):
         return len(self.image_paths)
 
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
-        path = self.image_paths[idx]
+        import cv2
+        path  = self.image_paths[idx]
         label = self.labels[idx]
 
-        # ── Preprocess (deskew, CLAHE, pad) ──────────────────────────────────
-        rgb_float = preprocess(path)                    # (H, W, 3) float32 [0,1]
+        try:
+            # ── Preprocess ────────────────────────────────────────────────────
+            rgb_float = preprocess(path)                        # (H, W, 3) float32 [0,1]
 
-        # ── ELA ───────────────────────────────────────────────────────────────
-        ela_uint8 = generate_ela(path)                  # (orig_H, orig_W, 3) uint8
-        import cv2
-        ela_resized = cv2.resize(
-            ela_uint8,
-            (MODEL_CONFIG["image_width"], MODEL_CONFIG["image_height"]),
-            interpolation=cv2.INTER_AREA,
-        )
-        ela_float = ela_resized.astype(np.float32) / 255.0  # (H, W, 3) [0,1]
+            # ── ELA ───────────────────────────────────────────────────────────
+            ela_uint8   = generate_ela(path)
+            ela_resized = cv2.resize(
+                ela_uint8,
+                (MODEL_CONFIG["image_width"], MODEL_CONFIG["image_height"]),
+                interpolation=cv2.INTER_AREA,
+            )
+            ela_float = ela_resized.astype(np.float32) / 255.0
 
-        # ── Augmentation (RGB only, as PIL) ───────────────────────────────────
+        except Exception as e:
+            logger.warning("Skipping corrupt image %s: %s", path.name, e)
+            # Return a blank tensor so the batch doesn't crash
+            blank = torch.zeros(6, MODEL_CONFIG["image_height"], MODEL_CONFIG["image_width"])
+            return blank, label
+
+        # ── Augmentation ──────────────────────────────────────────────────────
         rgb_pil = Image.fromarray((rgb_float * 255).astype(np.uint8))
-
         if self.augment:
-            rgb_tensor = self._augment_transform(rgb_pil)   # (3, H, W)
+            rgb_tensor = self._augment_transform(rgb_pil)
         else:
-            rgb_tensor = self._base_transform(rgb_pil)      # (3, H, W)
+            rgb_tensor = self._base_transform(rgb_pil)
 
-        # ── ELA tensor ────────────────────────────────────────────────────────
-        ela_tensor = torch.from_numpy(ela_float).permute(2, 0, 1).float()  # (3, H, W)
-
-        # ── Concatenate → 6-channel tensor ────────────────────────────────────
-        combined = torch.cat([rgb_tensor, ela_tensor], dim=0)  # (6, H, W)
-
+        ela_tensor = torch.from_numpy(ela_float).permute(2, 0, 1).float()
+        combined   = torch.cat([rgb_tensor, ela_tensor], dim=0)  # (6, H, W)
         return combined, label
 
 
-def load_dataset() -> tuple[list[Path], list[int]]:
-    """
-    Scan genuine/ and fake/ directories and return (paths, labels).
+# ═══════════════════════════════════════════════════════════════════════════════
+# DATA LOADING & STRATIFIED SPLIT
+# ═══════════════════════════════════════════════════════════════════════════════
 
-    Supported extensions: .jpg, .jpeg, .png, .bmp, .tiff
-    """
+def load_dataset() -> tuple[list[Path], list[int]]:
+    """Scan genuine/images/ and fake/images/ and return (paths, labels)."""
     supported = {".jpg", ".jpeg", ".png", ".bmp", ".tiff"}
-    paths: list[Path] = []
-    labels: list[int] = []
+    paths:  list[Path] = []
+    labels: list[int]  = []
 
     for label, directory in [(1, GENUINE_DIR), (0, FAKE_DIR)]:
         if not directory.exists():
-            logger.warning("Directory not found: %s — skipping", directory)
-            continue
-        found = [p for p in directory.iterdir() if p.suffix.lower() in supported]
-        logger.info("Found %d images in %s", len(found), directory)
+            raise RuntimeError(f"Directory not found: {directory}")
+        found = sorted([p for p in directory.iterdir() if p.suffix.lower() in supported])
+        logger.info("  [label=%d] Found %d images in %s", label, len(found), directory)
         paths.extend(found)
         labels.extend([label] * len(found))
 
     if not paths:
-        raise RuntimeError(
-            f"No images found in {DATA_DIR}. "
-            "Add images to training_data/genuine/ and training_data/fake/"
-        )
+        raise RuntimeError("No images found. Check training_data/genuine/images/ and training_data/fake/images/")
 
-    logger.info("Total dataset: %d images (%d genuine, %d fake)",
-                len(paths), labels.count(1), labels.count(0))
+    n_genuine = labels.count(1)
+    n_fake    = labels.count(0)
+    logger.info("Total: %d images  (genuine=%d  fake=%d  ratio=1:%.1f)",
+                len(paths), n_genuine, n_fake, n_fake / max(n_genuine, 1))
     return paths, labels
 
 
-def make_splits(
-    paths: list[Path],
-    labels: list[int],
+def make_stratified_splits(
+    paths:       list[Path],
+    labels:      list[int],
     train_ratio: float = 0.70,
-    val_ratio: float = 0.15,
-    seed: int = 42,
+    val_ratio:   float = 0.15,
+    seed:        int   = 42,
 ) -> tuple[CertificateDataset, CertificateDataset, CertificateDataset]:
     """
-    Split dataset into train / val / test subsets.
-
-    Returns
-    -------
-    train_ds, val_ds, test_ds : CertificateDataset
+    Stratified split — each subset preserves the genuine/fake ratio.
+    Prevents all genuine samples ending up in one split.
     """
-    n = len(paths)
-    n_train = int(n * train_ratio)
-    n_val = int(n * val_ratio)
-    n_test = n - n_train - n_val
+    rng = np.random.default_rng(seed)
 
-    rng = torch.Generator().manual_seed(seed)
-    indices = torch.randperm(n, generator=rng).tolist()
+    genuine_idx = [i for i, l in enumerate(labels) if l == 1]
+    fake_idx    = [i for i, l in enumerate(labels) if l == 0]
 
-    train_idx = indices[:n_train]
-    val_idx = indices[n_train : n_train + n_val]
-    test_idx = indices[n_train + n_val :]
+    def _split_class(idx_list):
+        arr = np.array(idx_list)
+        rng.shuffle(arr)
+        n = len(arr)
+        n_train = int(n * train_ratio)
+        n_val   = int(n * val_ratio)
+        return arr[:n_train].tolist(), arr[n_train:n_train + n_val].tolist(), arr[n_train + n_val:].tolist()
 
-    def _subset(idx_list: list[int], augment: bool) -> CertificateDataset:
+    g_train, g_val, g_test = _split_class(genuine_idx)
+    f_train, f_val, f_test = _split_class(fake_idx)
+
+    def _make_ds(g_idx, f_idx, augment):
+        combined = g_idx + f_idx
+        rng.shuffle(combined := np.array(combined))
         return CertificateDataset(
-            image_paths=[paths[i] for i in idx_list],
-            labels=[labels[i] for i in idx_list],
-            augment=augment,
+            image_paths=[paths[i]  for i in combined],
+            labels     =[labels[i] for i in combined],
+            augment    =augment,
         )
 
-    train_ds = _subset(train_idx, augment=True)
-    val_ds = _subset(val_idx, augment=False)
-    test_ds = _subset(test_idx, augment=False)
+    train_ds = _make_ds(g_train, f_train, augment=True)
+    val_ds   = _make_ds(g_val,   f_val,   augment=False)
+    test_ds  = _make_ds(g_test,  f_test,  augment=False)
 
-    logger.info("Split → train=%d  val=%d  test=%d", len(train_ds), len(val_ds), len(test_ds))
+    logger.info("Stratified split → train=%d  val=%d  test=%d",
+                len(train_ds), len(val_ds), len(test_ds))
     return train_ds, val_ds, test_ds
+
+
+def compute_class_weights(labels: list[int]) -> torch.Tensor:
+    """
+    Compute inverse-frequency class weights for CrossEntropyLoss.
+    weight[c] = total_samples / (num_classes * count[c])
+    """
+    n_total   = len(labels)
+    n_genuine = labels.count(1)
+    n_fake    = labels.count(0)
+    w_fake    = n_total / (2 * n_fake)
+    w_genuine = n_total / (2 * n_genuine)
+    weights   = torch.tensor([w_fake, w_genuine], dtype=torch.float32)
+    logger.info("Class weights → fake=%.4f  genuine=%.4f", w_fake, w_genuine)
+    return weights
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -227,34 +231,20 @@ def make_splits(
 
 def compute_metrics(
     all_labels: list[int],
-    all_preds: list[int],
-    all_probs: list[float],
+    all_preds:  list[int],
+    all_probs:  list[float],
 ) -> dict[str, float]:
-    """
-    Compute classification metrics.
-
-    Parameters
-    ----------
-    all_labels : list[int]   Ground-truth labels
-    all_preds  : list[int]   Predicted class indices
-    all_probs  : list[float] Predicted probability for class 1 (genuine)
-
-    Returns
-    -------
-    dict with accuracy, precision, recall, f1, roc_auc
-    """
-    # Guard against single-class batches (can happen with tiny datasets)
     try:
         auc = roc_auc_score(all_labels, all_probs)
     except ValueError:
         auc = float("nan")
 
     return {
-        "accuracy": accuracy_score(all_labels, all_preds),
+        "accuracy":  accuracy_score(all_labels, all_preds),
         "precision": precision_score(all_labels, all_preds, zero_division=0),
-        "recall": recall_score(all_labels, all_preds, zero_division=0),
-        "f1": f1_score(all_labels, all_preds, zero_division=0),
-        "roc_auc": auc,
+        "recall":    recall_score(all_labels, all_preds, zero_division=0),
+        "f1":        f1_score(all_labels, all_preds, zero_division=0),
+        "roc_auc":   auc,
     }
 
 
@@ -263,38 +253,29 @@ def compute_metrics(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def train_one_epoch(
-    model: nn.Module,
-    loader: DataLoader,
+    model:     nn.Module,
+    loader:    DataLoader,
     optimiser: torch.optim.Optimizer,
     criterion: nn.Module,
-    scaler: GradScaler,
-    epoch: int,
+    scaler:    GradScaler,
+    epoch:     int,
 ) -> float:
-    """
-    Run one training epoch with mixed-precision.
-
-    Returns
-    -------
-    float : mean training loss for the epoch
-    """
     model.train()
     total_loss = 0.0
-    n_batches = len(loader)
+    use_amp    = DEVICE.type == "cuda"
 
     pbar = tqdm(loader, desc=f"Epoch {epoch:03d} [train]", leave=False, unit="batch")
 
-    for batch_idx, (inputs, targets) in enumerate(pbar):
-        inputs = inputs.to(DEVICE, non_blocking=True)
+    for inputs, targets in pbar:
+        inputs  = inputs.to(DEVICE, non_blocking=True)
         targets = targets.to(DEVICE, non_blocking=True)
 
         optimiser.zero_grad(set_to_none=True)
 
-        # Mixed-precision forward pass
-        with autocast(device_type=DEVICE.type, enabled=DEVICE.type == "cuda"):
+        with autocast(device_type=DEVICE.type, enabled=use_amp):
             logits = model(inputs)
-            loss = criterion(logits, targets)
+            loss   = criterion(logits, targets)
 
-        # Backward + optimiser step via scaler
         scaler.scale(loss).backward()
         scaler.unscale_(optimiser)
         torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -304,8 +285,7 @@ def train_one_epoch(
         total_loss += loss.item()
         pbar.set_postfix(loss=f"{loss.item():.4f}")
 
-    mean_loss = total_loss / n_batches
-    return mean_loss
+    return total_loss / len(loader)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -313,48 +293,41 @@ def train_one_epoch(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def validate(
-    model: nn.Module,
-    loader: DataLoader,
-    criterion: nn.Module,
-    epoch: int,
+    model:      nn.Module,
+    loader:     DataLoader,
+    criterion:  nn.Module,
+    epoch:      int,
     split_name: str = "val",
 ) -> tuple[float, dict[str, float]]:
-    """
-    Evaluate model on a validation or test split.
-
-    Returns
-    -------
-    (mean_loss, metrics_dict)
-    """
     model.eval()
-    total_loss = 0.0
-    all_labels: list[int] = []
-    all_preds: list[int] = []
-    all_probs: list[float] = []
+    total_loss  = 0.0
+    all_labels: list[int]   = []
+    all_preds:  list[int]   = []
+    all_probs:  list[float] = []
+    use_amp     = DEVICE.type == "cuda"
 
     pbar = tqdm(loader, desc=f"Epoch {epoch:03d} [{split_name}]", leave=False, unit="batch")
 
     with torch.no_grad():
         for inputs, targets in pbar:
-            inputs = inputs.to(DEVICE, non_blocking=True)
+            inputs  = inputs.to(DEVICE, non_blocking=True)
             targets = targets.to(DEVICE, non_blocking=True)
 
-            with autocast(device_type=DEVICE.type, enabled=DEVICE.type == "cuda"):
+            with autocast(device_type=DEVICE.type, enabled=use_amp):
                 logits = model(inputs)
-                loss = criterion(logits, targets)
+                loss   = criterion(logits, targets)
 
             total_loss += loss.item()
 
-            probs = torch.softmax(logits, dim=1)[:, 1]  # P(genuine)
+            probs = torch.softmax(logits, dim=1)[:, 1]
             preds = torch.argmax(logits, dim=1)
 
             all_labels.extend(targets.cpu().tolist())
             all_preds.extend(preds.cpu().tolist())
             all_probs.extend(probs.cpu().tolist())
 
-    mean_loss = total_loss / len(loader)
     metrics = compute_metrics(all_labels, all_preds, all_probs)
-    return mean_loss, metrics
+    return total_loss / len(loader), metrics
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -362,157 +335,135 @@ def validate(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def train() -> None:
-    """
-    Full training pipeline:
-      1. Load and split dataset
-      2. Build model
-      3. Configure optimiser, scheduler, loss, scaler
-      4. Train for N epochs with MLflow logging
-      5. Save best checkpoint by validation AUC
-      6. Final evaluation on test set
-    """
     logger.info("═" * 60)
-    logger.info("CertValidator — Training Pipeline")
+    logger.info("CertiProof — Training Pipeline")
     logger.info("═" * 60)
 
     # ── Dataset ───────────────────────────────────────────────────────────────
     paths, labels = load_dataset()
-    train_ds, val_ds, test_ds = make_splits(paths, labels)
+    train_ds, val_ds, test_ds = make_stratified_splits(paths, labels)
 
     train_loader = DataLoader(
         train_ds,
-        batch_size=MODEL_CONFIG["batch_size"],
-        shuffle=True,
-        num_workers=min(4, os.cpu_count() or 1),
-        pin_memory=DEVICE.type == "cuda",
-        drop_last=True,
+        batch_size  = MODEL_CONFIG["batch_size"],
+        shuffle     = True,
+        num_workers = NUM_WORKERS,
+        pin_memory  = DEVICE.type == "cuda",
+        drop_last   = False,
     )
     val_loader = DataLoader(
         val_ds,
-        batch_size=MODEL_CONFIG["batch_size"],
-        shuffle=False,
-        num_workers=min(4, os.cpu_count() or 1),
-        pin_memory=DEVICE.type == "cuda",
+        batch_size  = MODEL_CONFIG["batch_size"],
+        shuffle     = False,
+        num_workers = NUM_WORKERS,
+        pin_memory  = DEVICE.type == "cuda",
     )
     test_loader = DataLoader(
         test_ds,
-        batch_size=MODEL_CONFIG["batch_size"],
-        shuffle=False,
-        num_workers=min(4, os.cpu_count() or 1),
-        pin_memory=DEVICE.type == "cuda",
+        batch_size  = MODEL_CONFIG["batch_size"],
+        shuffle     = False,
+        num_workers = NUM_WORKERS,
+        pin_memory  = DEVICE.type == "cuda",
     )
 
     # ── Model ─────────────────────────────────────────────────────────────────
     model = build_model().to(DEVICE)
-    model.train()
+
+    # ── Class weights ─────────────────────────────────────────────────────────
+    class_weights = compute_class_weights(labels).to(DEVICE)
 
     # ── Optimiser & Scheduler ─────────────────────────────────────────────────
     optimiser = torch.optim.AdamW(
         model.parameters(),
-        lr=MODEL_CONFIG["learning_rate"],
-        weight_decay=1e-4,
+        lr           = MODEL_CONFIG["learning_rate"],
+        weight_decay = 1e-4,
     )
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
         optimiser,
-        T_max=MODEL_CONFIG["epochs"],
-        eta_min=1e-6,
+        T_max   = MODEL_CONFIG["epochs"],
+        eta_min = 1e-6,
     )
 
     # ── Loss & Scaler ─────────────────────────────────────────────────────────
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
-    scaler = GradScaler(enabled=DEVICE.type == "cuda")
+    criterion = nn.CrossEntropyLoss(weight=class_weights, label_smoothing=0.05)
+    scaler    = GradScaler(device=DEVICE.type)
 
-    # ── MLflow experiment ─────────────────────────────────────────────────────
-    mlflow.set_experiment("certvalidator_forgery_detection")
+    # ── MLflow ────────────────────────────────────────────────────────────────
+    # Use a local path to avoid issues with spaces in Windows usernames
+    mlflow_dir = ROOT / "mlruns"
+    mlflow_dir.mkdir(exist_ok=True)
+    mlflow.set_tracking_uri(mlflow_dir.as_uri())
+    mlflow.set_experiment("certiproof_forgery_detection")
 
     with mlflow.start_run(run_name=f"efficientnet_b4_{int(time.time())}"):
-        # Log hyperparameters
         mlflow.log_params({
-            "model": MODEL_CONFIG["model_name"],
-            "epochs": MODEL_CONFIG["epochs"],
-            "batch_size": MODEL_CONFIG["batch_size"],
-            "learning_rate": MODEL_CONFIG["learning_rate"],
-            "dropout": MODEL_CONFIG["dropout"],
-            "image_size": f"{MODEL_CONFIG['image_width']}x{MODEL_CONFIG['image_height']}",
-            "device": str(DEVICE),
+            "model":        MODEL_CONFIG["model_name"],
+            "epochs":       MODEL_CONFIG["epochs"],
+            "batch_size":   MODEL_CONFIG["batch_size"],
+            "lr":           MODEL_CONFIG["learning_rate"],
+            "dropout":      MODEL_CONFIG["dropout"],
+            "image_size":   f"{MODEL_CONFIG['image_width']}x{MODEL_CONFIG['image_height']}",
+            "device":       str(DEVICE),
             "train_samples": len(train_ds),
-            "val_samples": len(val_ds),
-            "test_samples": len(test_ds),
+            "val_samples":   len(val_ds),
+            "test_samples":  len(test_ds),
+            "n_genuine":     labels.count(1),
+            "n_fake":        labels.count(0),
         })
 
         best_val_auc: float = 0.0
         epochs = MODEL_CONFIG["epochs"]
 
-        # ── Training loop ─────────────────────────────────────────────────────
         for epoch in range(1, epochs + 1):
-            epoch_start = time.time()
+            t0 = time.time()
 
-            # Train
-            train_loss = train_one_epoch(
-                model, train_loader, optimiser, criterion, scaler, epoch
-            )
+            train_loss             = train_one_epoch(model, train_loader, optimiser, criterion, scaler, epoch)
+            val_loss, val_metrics  = validate(model, val_loader, criterion, epoch, "val")
 
-            # Validate
-            val_loss, val_metrics = validate(model, val_loader, criterion, epoch, "val")
-
-            # Step scheduler
             scheduler.step()
-            current_lr = scheduler.get_last_lr()[0]
+            current_lr  = scheduler.get_last_lr()[0]
+            epoch_time  = time.time() - t0
 
-            epoch_time = time.time() - epoch_start
-
-            # ── Console summary ───────────────────────────────────────────────
             logger.info(
-                "Epoch %03d/%03d | "
-                "train_loss=%.4f  val_loss=%.4f  "
-                "val_acc=%.4f  val_auc=%.4f  val_f1=%.4f  "
-                "lr=%.2e  time=%.1fs",
-                epoch, epochs,
-                train_loss, val_loss,
+                "Epoch %03d/%03d | train_loss=%.4f  val_loss=%.4f  "
+                "acc=%.4f  auc=%.4f  f1=%.4f  lr=%.2e  time=%.1fs",
+                epoch, epochs, train_loss, val_loss,
                 val_metrics["accuracy"], val_metrics["roc_auc"], val_metrics["f1"],
                 current_lr, epoch_time,
             )
 
-            # ── MLflow logging ────────────────────────────────────────────────
-            mlflow.log_metrics(
-                {
-                    "train_loss": train_loss,
-                    "val_loss": val_loss,
-                    "val_accuracy": val_metrics["accuracy"],
-                    "val_precision": val_metrics["precision"],
-                    "val_recall": val_metrics["recall"],
-                    "val_f1": val_metrics["f1"],
-                    "val_auc": val_metrics["roc_auc"],
-                    "learning_rate": current_lr,
-                },
-                step=epoch,
-            )
+            mlflow.log_metrics({
+                "train_loss":    train_loss,
+                "val_loss":      val_loss,
+                "val_accuracy":  val_metrics["accuracy"],
+                "val_precision": val_metrics["precision"],
+                "val_recall":    val_metrics["recall"],
+                "val_f1":        val_metrics["f1"],
+                "val_auc":       val_metrics["roc_auc"],
+                "learning_rate": current_lr,
+            }, step=epoch)
 
-            # ── Checkpoint: save best by val AUC ─────────────────────────────
+            # ── Save best checkpoint ──────────────────────────────────────────
             val_auc = val_metrics["roc_auc"]
             if not np.isnan(val_auc) and val_auc > best_val_auc:
                 best_val_auc = val_auc
-                torch.save(
-                    {
-                        "epoch": epoch,
-                        "model_state_dict": model.state_dict(),
-                        "optimiser_state_dict": optimiser.state_dict(),
-                        "val_auc": best_val_auc,
-                        "val_metrics": val_metrics,
-                        "model_config": MODEL_CONFIG,
-                    },
-                    BEST_MODEL_PATH,
-                )
-                logger.info("  ✓ New best model saved (val_auc=%.4f)", best_val_auc)
+                torch.save({
+                    "epoch":              epoch,
+                    "model_state_dict":   model.state_dict(),
+                    "optimiser_state_dict": optimiser.state_dict(),
+                    "val_auc":            best_val_auc,
+                    "val_metrics":        val_metrics,
+                    "model_config":       MODEL_CONFIG,
+                }, BEST_MODEL_PATH)
+                logger.info("  ✓ Best model saved  (val_auc=%.4f)", best_val_auc)
                 mlflow.log_metric("best_val_auc", best_val_auc, step=epoch)
 
         # ── Final test evaluation ─────────────────────────────────────────────
         logger.info("Loading best checkpoint for test evaluation…")
         if BEST_MODEL_PATH.exists():
-            ckpt = torch.load(BEST_MODEL_PATH, map_location=DEVICE)
+            ckpt = torch.load(BEST_MODEL_PATH, map_location=DEVICE, weights_only=True)
             model.load_state_dict(ckpt["model_state_dict"])
-            logger.info("  Loaded checkpoint from epoch %d (val_auc=%.4f)",
-                        ckpt["epoch"], ckpt["val_auc"])
+            logger.info("  Loaded epoch %d  (val_auc=%.4f)", ckpt["epoch"], ckpt["val_auc"])
 
         test_loss, test_metrics = validate(model, test_loader, criterion, epoch=0, split_name="test")
 
@@ -526,27 +477,20 @@ def train() -> None:
         logger.info("  roc_auc   : %.4f", test_metrics["roc_auc"])
         logger.info("═" * 60)
 
-        mlflow.log_metrics(
-            {
-                "test_loss": test_loss,
-                "test_accuracy": test_metrics["accuracy"],
-                "test_precision": test_metrics["precision"],
-                "test_recall": test_metrics["recall"],
-                "test_f1": test_metrics["f1"],
-                "test_auc": test_metrics["roc_auc"],
-            }
-        )
+        mlflow.log_metrics({
+            "test_loss":      test_loss,
+            "test_accuracy":  test_metrics["accuracy"],
+            "test_precision": test_metrics["precision"],
+            "test_recall":    test_metrics["recall"],
+            "test_f1":        test_metrics["f1"],
+            "test_auc":       test_metrics["roc_auc"],
+        })
 
-        # Log the best model artifact to MLflow
         if BEST_MODEL_PATH.exists():
             mlflow.log_artifact(str(BEST_MODEL_PATH), artifact_path="checkpoints")
 
     logger.info("Training complete. Best model → %s", BEST_MODEL_PATH)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# ENTRY POINT
-# ═══════════════════════════════════════════════════════════════════════════════
 
 if __name__ == "__main__":
     train()

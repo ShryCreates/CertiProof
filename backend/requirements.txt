@@ -1,8 +1,48 @@
+# CertiProof Backend — Python 3.10+
+# Install: pip install -r requirements.txt
+
+# ── Web framework ─────────────────────────────────────────────────────────────
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
+
+# ── Database ──────────────────────────────────────────────────────────────────
 sqlalchemy==2.0.36
+
+# ── Validation & serialisation ────────────────────────────────────────────────
 pydantic[email]==2.10.3
+
+# ── Auth ──────────────────────────────────────────────────────────────────────
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+bcrypt==5.0.0
+
+# ── File handling ─────────────────────────────────────────────────────────────
 python-multipart==0.0.18
 aiofiles==24.1.0
+
+# ── PDF support ───────────────────────────────────────────────────────────────
+pdf2image==1.17.0
+reportlab==4.0.9
+
+# ── Computer vision ───────────────────────────────────────────────────────────
+opencv-python==4.10.0.84
+Pillow==10.4.0
+
+# ── Numerical computing ───────────────────────────────────────────────────────
+numpy==1.26.4
+
+# ── Deep learning (ML pipeline) ───────────────────────────────────────────────
+torch==2.3.1
+torchvision==0.18.1
+timm==1.0.9
+
+# ── OCR ───────────────────────────────────────────────────────────────────────
+pytesseract==0.3.10
+
+# ── Fuzzy string matching (institution lookup) ────────────────────────────────
+fuzzywuzzy==0.18.0
+python-Levenshtein==0.21.1
+
+# ── ML metrics & experiment tracking ─────────────────────────────────────────
+scikit-learn==1.5.1
+mlflow==2.15.1
+tqdm==4.66.5

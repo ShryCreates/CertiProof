@@ -1,0 +1,57 @@
+{
+  "fields": {
+    "student_name": {
+      "value": "Arjun Mehta",
+      "confidence": 0.92,
+      "method": "regex"
+    },
+    "institution": {
+      "value": "Indian Institute of Technology Bombay",
+      "confidence": 0.97,
+      "method": "regex",
+      "db_name": "Indian Institute of Technology Bombay"
+    },
+    "degree": {
+      "value": "Bachelor of Technology",
+      "confidence": 0.95,
+      "method": "regex"
+    },
+    "discipline": {
+      "value": "Computer Science and Engineering",
+      "confidence": 0.93,
+      "method": "regex"
+    },
+    "issue_date": {
+      "value": "12 June 2023",
+      "confidence": 0.91,
+      "method": "regex"
+    },
+    "grade": {
+      "value": "8.7 CGPA",
+      "confidence": 0.89,
+      "method": "regex"
+    },
+    "roll_number": {
+      "value": "19B050042",
+      "confidence": 0.94,
+      "method": "regex"
+    },
+    "serial_number": {
+      "value": "IITB/2023/BTech/00421",
+      "confidence": 0.88,
+      "method": "regex"
+    }
+  },
+  "institution_match": {
+    "matched": true,
+    "name": "Indian Institute of Technology Bombay",
+    "short": "IIT Bombay",
+    "code": "IITB",
+    "accreditation": "NAAC A++",
+    "match_score": 1.0,
+    "roll_pattern": "[0-9]{2}[A-Z]{1,2}[0-9]{4,5}"
+  },
+  "roll_valid": true,
+  "overall_confidence": 0.9238,
+  "warnings": []
+}
