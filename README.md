@@ -216,4 +216,4 @@ This project is for educational purposes.
 
 ## 👨‍💻 Author
 
-**Shresth Kumar Verma** — AI-Based Academic Certificate Authenticity Validator
+**Shreya Kumari** — AI-Based Academic Certificate Authenticity Validator
